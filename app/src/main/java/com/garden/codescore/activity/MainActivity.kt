@@ -1,8 +1,10 @@
 package com.garden.codescore.activity
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.widget.ImageButton
 import androidx.recyclerview.widget.RecyclerView
 import com.garden.codescore.R
 import com.garden.codescore.customrecyclerview.*
@@ -16,6 +18,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val btnCreateNote: ImageButton = findViewById(R.id.btn_create_note)
+        btnCreateNote.setOnClickListener{
+            val intent: Intent = Intent(this, ScoreActivity::class.java)
+            startActivity(intent)
+        }
 
         listview = findViewById(R.id.listview)
         initRecycler()
