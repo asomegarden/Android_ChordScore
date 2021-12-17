@@ -2,14 +2,13 @@ package com.garden.chordscore.activity
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.ImageButton
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.*
 import androidx.annotation.Dimension
 import androidx.appcompat.app.AppCompatActivity
 import com.garden.chordscore.R
@@ -17,23 +16,65 @@ import kotlin.math.roundToInt
 
 class ScoreActivity : AppCompatActivity() {
     lateinit var dynamicAddChordButton: Button
+    var lineList: MutableList<View> = mutableListOf()
+    var editList: MutableList<EditText> = mutableListOf()
+    var btnList: MutableList<Button> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_score)
 
-        var linear: LinearLayout = findViewById(R.id.linear_line1)
-        var btnBack: ImageButton = findViewById(R.id.btn_back)
+        val btnBack: ImageButton = findViewById(R.id.btn_back)
+        val btnNewLine: ImageButton = findViewById(R.id.btn_new_line)
+        val linearParent: LinearLayout = findViewById(R.id.linear_parent)
 
-        makeChord(chord = "A", linear)
+        makeLine(linearParent)
 
         btnBack.setOnClickListener {
             val intent: Intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
         }
+
+        btnNewLine.setOnClickListener {
+            makeLine(parentView = linearParent)
+        }
     }
 
-    private fun makeChord(chord: String, linearview: LinearLayout){
+    private fun makeLine(parentView: LinearLayout){
+        val dynamicLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = getDrawable(R.color.white)
+
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            layoutParams = lp
+        }
+
+        val dynamicEditText = EditText(this).apply {
+            height = getDP(40)
+            setTextColor(Color.BLACK)
+            setTextSize(Dimension.DP, getDP(15).toFloat())
+            gravity = Gravity.CENTER_VERTICAL
+
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            layoutParams = lp
+        }
+
+        lineList.add(dynamicLine)
+        editList.add(dynamicEditText)
+
+        parentView.addView(dynamicLine)
+        parentView.addView(dynamicEditText)
+
+        makeAddChordButton(dynamicLine)
+    }
+
+    private fun makeChord(chord: String, linearView: LinearLayout){
         val dynamicTextView = TextView(this).apply {
             width = getDP(40)
             height = getDP(40)
@@ -69,8 +110,8 @@ class ScoreActivity : AppCompatActivity() {
                     if(dynamicTextView.width < getDP(40)){
                         dynamicTextView.width = getDP(40)
                     }
-                    if(linearview.right - dynamicTextView.right < getDP(40)){
-                        dynamicTextView.width += (linearview.right - dynamicTextView.right)
+                    if(linearView.right - dynamicTextView.right < getDP(40)){
+                        dynamicTextView.width += (linearView.right - dynamicTextView.right)
                     }
                 }
             }
@@ -78,12 +119,12 @@ class ScoreActivity : AppCompatActivity() {
             true
         }
 
-        linearview.addView(dynamicTextView)
-        if(::dynamicAddChordButton.isInitialized) linearview.removeView(dynamicAddChordButton)
-        makeAddChordButton(linearview)
+        linearView.addView(dynamicTextView)
+        if(::dynamicAddChordButton.isInitialized) linearView.removeView(dynamicAddChordButton)
+        makeAddChordButton(linearView)
     }
 
-    private fun makeAddChordButton(linearview: LinearLayout){
+    private fun makeAddChordButton(linearView: LinearLayout){
         dynamicAddChordButton = Button(this).apply {
             background = getDrawable(R.drawable.ic_add_box)
 
@@ -96,13 +137,20 @@ class ScoreActivity : AppCompatActivity() {
             lp.height = getDP(40)
             layoutParams = lp
         }
-        var moveX: Float = 0f
 
         dynamicAddChordButton.setOnClickListener {
-            makeChord("E", linearview)
+            makeChord("E", linearView)
         }
 
-        linearview.addView(dynamicAddChordButton)
+        if(lineList.size > btnList.size){
+            btnList.add(dynamicAddChordButton)
+        }else{
+            var index: Int = lineList.indexOf(linearView)
+            linearView.removeView(btnList[index])
+            btnList[index] = dynamicAddChordButton
+        }
+
+        linearView.addView(dynamicAddChordButton)
     }
 
     private fun getDP(value : Int) : Int = (value * resources.displayMetrics.density).roundToInt()
