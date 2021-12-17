@@ -1,4 +1,4 @@
-package com.garden.codescore
+package com.garden.chordscore
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

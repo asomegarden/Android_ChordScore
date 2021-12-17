@@ -1,4 +1,4 @@
-package com.garden.codescore.customrecyclerview
+package com.garden.chordscore.customrecyclerview
 
 data class ScoreFileData (
     val name : String,

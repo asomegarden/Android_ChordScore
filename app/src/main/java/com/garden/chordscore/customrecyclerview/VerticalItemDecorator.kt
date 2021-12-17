@@ -1,4 +1,4 @@
-package com.garden.codescore.customrecyclerview
+package com.garden.chordscore.customrecyclerview
 
 import android.graphics.Rect
 import android.view.View

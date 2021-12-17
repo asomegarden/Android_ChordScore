@@ -1,4 +1,4 @@
-package com.garden.codescore
+package com.garden.chordscore
 
 import org.junit.Test
 

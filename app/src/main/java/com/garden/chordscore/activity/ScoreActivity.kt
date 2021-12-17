@@ -1,14 +1,10 @@
-package com.garden.codescore.activity
+package com.garden.chordscore.activity
 
 import android.content.Intent
 import android.graphics.Color
-import android.media.Image
 import android.os.Bundle
-import android.os.PersistableBundle
-import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageButton
@@ -16,7 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.Dimension
 import androidx.appcompat.app.AppCompatActivity
-import com.garden.codescore.R
+import com.garden.chordscore.R
 import kotlin.math.roundToInt
 
 class ScoreActivity : AppCompatActivity() {

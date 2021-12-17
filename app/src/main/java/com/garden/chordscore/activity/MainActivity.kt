@@ -1,4 +1,4 @@
-package com.garden.codescore.activity
+package com.garden.chordscore.activity
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -6,8 +6,9 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.ImageButton
 import androidx.recyclerview.widget.RecyclerView
-import com.garden.codescore.R
-import com.garden.codescore.customrecyclerview.*
+import com.garden.chordscore.customrecyclerview.CustomItemAdapter
+import com.garden.chordscore.customrecyclerview.ScoreFileData
+import com.garden.chordscore.R
 
 
 class MainActivity : AppCompatActivity() {

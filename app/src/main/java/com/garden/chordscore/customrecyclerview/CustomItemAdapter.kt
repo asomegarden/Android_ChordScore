@@ -1,4 +1,4 @@
-package com.garden.codescore.customrecyclerview
+package com.garden.chordscore.customrecyclerview
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -8,7 +8,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.garden.codescore.R
+import com.garden.chordscore.R
 
 class CustomItemAdapter(private val context: Context) : RecyclerView.Adapter<CustomItemAdapter.ViewHolder>() {
 
