@@ -1,3 +1,62 @@
 <resources>
     <string name="app_name">Code Score</string>
+
+    <string-array name="Chords">
+        <item>E</item>
+        <item>F</item>
+        <item>G</item>
+        <item>A</item>
+        <item>B</item>
+        <item>C</item>
+        <item>D</item>
+        <item>Em</item>
+        <item>Fm</item>
+        <item>Gm</item>
+        <item>Am</item>
+        <item>Bm</item>
+        <item>Cm</item>
+        <item>Dm</item>
+        <item>Em7</item>
+        <item>Fm7</item>
+        <item>Gm7</item>
+        <item>Am7</item>
+        <item>Bm7</item>
+        <item>Cm7</item>
+        <item>Dm7</item>
+        <item>EM7</item>
+        <item>FM7</item>
+        <item>GM7</item>
+        <item>AM7</item>
+        <item>BM7</item>
+        <item>CM7</item>
+        <item>DM7</item>
+        <item>E7</item>
+        <item>F7</item>
+        <item>G7</item>
+        <item>A7</item>
+        <item>B7</item>
+        <item>C7</item>
+        <item>D7</item>
+        <item>E#</item>
+        <item>F#</item>
+        <item>G#</item>
+        <item>A#</item>
+        <item>B#</item>
+        <item>C#</item>
+        <item>D#</item>
+        <item>Esus4</item>
+        <item>Fsus4</item>
+        <item>Gsus4</item>
+        <item>Asus4</item>
+        <item>Bsus4</item>
+        <item>Csus4</item>
+        <item>Dsus4</item>
+        <item>Edim7</item>
+        <item>Fdim7</item>
+        <item>Gdim7</item>
+        <item>Adim7</item>
+        <item>Bdim7</item>
+        <item>Cdim7</item>
+        <item>Ddim7</item>
+    </string-array>
 </resources>
