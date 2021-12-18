@@ -1,5 +1,6 @@
 package com.garden.chordscore.activity
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -16,9 +17,10 @@ import kotlin.math.roundToInt
 
 class ScoreActivity : AppCompatActivity() {
     lateinit var dynamicAddChordButton: Button
-    var lineList: MutableList<View> = mutableListOf()
+    var lineList: MutableList<LinearLayout> = mutableListOf()
     var editList: MutableList<EditText> = mutableListOf()
     var btnList: MutableList<Button> = mutableListOf()
+    var chordListMap: MutableMap<LinearLayout, MutableList<TextView>> = mutableMapOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,6 +67,7 @@ class ScoreActivity : AppCompatActivity() {
             layoutParams = lp
         }
 
+        chordListMap[dynamicLine] = mutableListOf()
         lineList.add(dynamicLine)
         editList.add(dynamicEditText)
 
@@ -74,6 +77,7 @@ class ScoreActivity : AppCompatActivity() {
         makeAddChordButton(dynamicLine)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun makeChord(chord: String, linearView: LinearLayout){
         val dynamicTextView = TextView(this).apply {
             width = getDP(40)
@@ -93,11 +97,30 @@ class ScoreActivity : AppCompatActivity() {
         }
         var moveX: Float = 0f
 
-        //리스트에 라인별로 버튼을 넣어서 관리하자. 만약 끝났을 때 리스트의 마지막 요소를 검사해서 right의 상태에 따라 조절해주게 조작할 필요가 있음
-        //그리고 버튼은 각 라인별로 딱 하나 유일하게 존재하게 해주어야함
+        chordListMap[linearView]?.add(dynamicTextView)
 
+        dynamicTextView.setOnTouchListener{ _, event ->
+            fun removeHideChord(index: Int, list: MutableList<TextView>){
+                while(index != -1 && index < list.size-1){
+                    var removeTextView = list.last()
+                    linearView.removeView(removeTextView)
+                    list.remove(removeTextView)
+                }
+            }
 
-        dynamicTextView.setOnTouchListener{view ,event ->
+            fun checkAndFixOver(textView: TextView): Boolean{
+                if(linearView.right - textView.right < getDP(40)){
+                    textView.width += (linearView.right - textView.right)
+
+                    var list = chordListMap[linearView]
+                    var index: Int = list!!.indexOf(textView)
+
+                    removeHideChord(index, list)
+                    return true
+                }
+                return false
+            }
+
             when(event.action){
                 MotionEvent.ACTION_DOWN -> {
                     moveX = event.rawX
@@ -110,8 +133,10 @@ class ScoreActivity : AppCompatActivity() {
                     if(dynamicTextView.width < getDP(40)){
                         dynamicTextView.width = getDP(40)
                     }
-                    if(linearView.right - dynamicTextView.right < getDP(40)){
-                        dynamicTextView.width += (linearView.right - dynamicTextView.right)
+                    var list = chordListMap[linearView]
+                    var index = list!!.indexOf(dynamicTextView)
+                    while(index != list.size){
+                        if(checkAndFixOver(list[index++])) break
                     }
                 }
             }
@@ -122,6 +147,7 @@ class ScoreActivity : AppCompatActivity() {
         linearView.addView(dynamicTextView)
         if(::dynamicAddChordButton.isInitialized) linearView.removeView(dynamicAddChordButton)
         makeAddChordButton(linearView)
+
     }
 
     private fun makeAddChordButton(linearView: LinearLayout){
