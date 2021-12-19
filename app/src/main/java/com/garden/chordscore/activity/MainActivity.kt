@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
         val btnCreateNote: ImageButton = findViewById(R.id.btn_create_note)
         btnCreateNote.setOnClickListener{
             val intent: Intent = Intent(this, ScoreActivity::class.java)
+            intent.putExtra("id", "2091687684")
             startActivity(intent)
         }
 
