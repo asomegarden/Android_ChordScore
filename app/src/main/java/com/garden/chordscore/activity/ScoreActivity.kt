@@ -104,7 +104,6 @@ class ScoreActivity : AppCompatActivity() {
             )
         }
 
-        Log.d("MYHASHCODE", values.get(ScoreContract.ScoreEntry.COLUMN_NAME_ID).toString())
         dbHelper.close()
     }
 

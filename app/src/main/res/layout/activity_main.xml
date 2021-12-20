@@ -36,12 +36,12 @@
         android:src="@drawable/ic_create_note" />
 
     <ImageButton
+        android:id="@+id/btn_create_folder"
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:layout_toLeftOf="@+id/btn_create_note"
-        android:src="@drawable/ic_create_folder"
         android:background="@color/transparent"
-        android:id="@+id/btn_create_folder"/>
+        android:src="@drawable/ic_create_folder" />
 
     <LinearLayout
         android:layout_width="match_parent"
