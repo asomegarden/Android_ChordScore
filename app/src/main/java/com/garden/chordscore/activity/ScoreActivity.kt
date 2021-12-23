@@ -17,6 +17,7 @@ import android.widget.*
 import androidx.annotation.Dimension
 import androidx.appcompat.app.AppCompatActivity
 import com.garden.chordscore.R
+import com.garden.chordscore.database.FileContract
 import com.garden.chordscore.database.ScoreContract
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -38,6 +39,8 @@ class ScoreActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_score)
+
+        dbHelper = ScoreContract.ScoreDBHelper(this)
 
         val btnBack: ImageButton = findViewById(R.id.btn_back)
         val btnNewLine: ImageButton = findViewById(R.id.btn_new_line)
@@ -63,7 +66,6 @@ class ScoreActivity : AppCompatActivity() {
     }
 
     private fun saveDB(){
-        dbHelper = ScoreContract.ScoreDBHelper(this)
         val db = dbHelper.writableDatabase
 
         var title: String = editTitle.text.toString()
@@ -150,7 +152,7 @@ class ScoreActivity : AppCompatActivity() {
             }
         }
 
-        dbHelper.close()
+        db.close()
     }
 
     private fun removeDB(id: String){
@@ -158,8 +160,72 @@ class ScoreActivity : AppCompatActivity() {
         val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
         val selectionArgs = arrayOf(id)
         val deletedRows = db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
+        db.close()
 
-        super.onBackPressed()
+        val dbRead = FileContract.FileDBHelper(this).readableDatabase
+
+        val projection = arrayOf(
+            FileContract.FileEntry.COLUMN_NAME_IS_FOLDER,
+            FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME,
+            FileContract.FileEntry.COLUMN_NAME_HAVING_FILES,
+            FileContract.FileEntry.COLUMN_NAME_PREV)
+
+        val selectionRead = "${FileContract.FileEntry.COLUMN_NAME_ID} = ?"
+        val selectionArgsRead = arrayOf(prevFolderID)
+
+        val cursor = dbRead.query(
+            FileContract.FileEntry.TABLE_NAME,
+            projection,
+            selectionRead,
+            selectionArgsRead,
+            null,
+            null,
+            null
+        )
+
+        var isFolder = ""
+        var name = ""
+        var having = ""
+        var prev = ""
+
+        if(cursor.moveToFirst()) {
+
+            isFolder = cursor.getString(0)
+            name = cursor.getString(1)
+            having = cursor.getString(2)
+            prev = cursor.getString(3)
+
+            dbRead.close()
+        }else {
+            dbRead.close()
+            return
+        }
+
+        having.replace("$id|", "")
+
+        var values = ContentValues().apply {
+            put(FileContract.FileEntry.COLUMN_NAME_ID, prevFolderID)
+            put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder)
+            put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, having)
+            put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
+            put(FileContract.FileEntry.COLUMN_NAME_PREV, prev)
+        }
+
+        val dbFile = FileContract.FileDBHelper(this).writableDatabase
+
+        val count = dbFile?.update(
+            FileContract.FileEntry.TABLE_NAME,
+            values,
+            selection,
+            selectionArgs
+        )
+
+        val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
+        val selectionArgsFile = arrayOf(id)
+        val deleteRowsFile = dbFile.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
+        dbFile.close()
+
+        goBack()
     }
 
     private fun makeLine(parentView: LinearLayout){

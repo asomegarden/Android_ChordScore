@@ -20,10 +20,12 @@
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_note_add.xml" value="0.38229166666666664" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/activity_main.xml" value="0.36614583333333334" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/activity_score.xml" value="0.25" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_dialog_rename.xml" value="0.25" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_dropdown_item.xml" value="0.33" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_recycler_item.xml" value="0.33" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_spinner_background_category.xml" value="0.36614583333333334" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_spinner_dropdown_category.xml" value="0.36614583333333334" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/menu/listview_menu.xml" value="0.20208333333333334" />
       </map>
     </option>
   </component>

@@ -1,13 +1,10 @@
 package com.garden.chordscore.activity
 
 import android.annotation.SuppressLint
-import android.content.ContentValues
-import android.content.Intent
+import android.content.*
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.BaseColumns
-import android.widget.ImageButton
-import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.garden.chordscore.customrecyclerview.CustomItemAdapter
 import com.garden.chordscore.customrecyclerview.ScoreFileData
@@ -18,14 +15,16 @@ import java.sql.Time
 import java.util.*
 import androidx.core.app.ActivityCompat
 
-import android.content.SharedPreferences
+import android.graphics.Color
 import android.util.Log
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.MenuItem
 import android.view.View
-
-import android.widget.Toast
-
-
-
+import android.widget.*
+import androidx.appcompat.app.AlertDialog
+import java.io.File
+import java.text.FieldPosition
 
 
 class MainActivity : AppCompatActivity() {
@@ -92,7 +91,7 @@ class MainActivity : AppCompatActivity() {
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_CHORDS, "")
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_LYRICS, "")
             }
-            val newRowId = db?.insert(ScoreContract.ScoreEntry.TABLE_NAME, null, values)
+            db?.insert(ScoreContract.ScoreEntry.TABLE_NAME, null, values)
             scoreDBHelper.close()
             
             //이때 Score 데이터 생성과 동시에 File 데이터도 생성해서 폴더에 따로 포함시켜줘야함
@@ -106,8 +105,8 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        fileAdapter?.setOnItemClickListener(object: CustomItemAdapter.OnItemClickListener{
-            override fun onItemClick(v: View, fileData: ScoreFileData, position: Int) {
+        this.fileAdapter.setOnItemClickListener(object: CustomItemAdapter.OnItemClickListener{
+            override fun onClick(v: View, fileData: ScoreFileData, position: Int) {
                 if(fileData.isDirectory){
                     loadFolder(fileData.id)
                 }else{
@@ -120,11 +119,167 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        this.fileAdapter.setOnItemLongClickListener(object: CustomItemAdapter.OnItemLongClickListener{
+            override fun onLongClick(v: View, fileData: ScoreFileData, position: Int) {
+                val popupMenu = PopupMenu(this@MainActivity, v, Gravity.END)
+                menuInflater.inflate(R.menu.listview_menu, popupMenu.menu)
+                popupMenu.setOnMenuItemClickListener ( object: PopupMenu.OnMenuItemClickListener {
+                    override fun onMenuItemClick(selMenu: MenuItem?): Boolean {
+                        when(selMenu!!.itemId){
+                            R.id.menu_rename->{
+                                popupRenameMenu(fileData, position)
+                                return true
+                            }
+                            R.id.menu_delete->{
+                                popupDeleteMenu(fileData)
+                                return true
+                            }
+                        }
+                        return false
+                    }
+                })
+                popupMenu.show()
+            }
+        })
+
     }
 
-    private fun updateCurFolderData(updateKey: String, updateValue: String){
+    private fun popupDeleteMenu(fileData: ScoreFileData){
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Delete")
+        builder.setMessage("Really?")
+
+        builder.setPositiveButton("yes", DialogInterface.OnClickListener { _, _ ->
+            data.remove(fileData)
+
+            updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, fileData.id, true)
+            applyRecycler()
+
+            val dbFile = FileContract.FileDBHelper(this).writableDatabase
+            val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
+            val selectionArgsFile = arrayOf(fileData.id)
+            dbFile.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
+            dbFile.close()
+
+            if(!fileData.isDirectory){
+                val db = ScoreContract.ScoreDBHelper(this).writableDatabase
+                val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
+                val selectionArgs = arrayOf(fileData.id)
+                db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
+                db.close()
+            }
+        })
+        builder.setNegativeButton("no", null)
+        builder.show()
+        
+        //폴더를 지울 경우 폴더 내부에 있는 다른 파일들을 재귀적으로 모두 삭제할 필요가 있음
+        //clear folder 함수를 만들면 좋을 것 같음
+        //prev가 같으면 같은 깊이에 있는 폴더니까 그렇게 지워나가면 될듯
+        //근데 문제는 그 파일들이 또 파일을 가지고 있는 폴더일 경우 그걸 하나하나 확인하기가 힘들듯
+        //음 일단 같은 깊이에 있는 파일을 모두 불러와서 커서로 하나하나 확인하면서 재귀적으로 호출해나가면 될듯
+    }
+
+    private fun popupRenameMenu(fileData: ScoreFileData, position: Int){
+        val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        val view = inflater.inflate(R.layout.custom_dialog_rename, null)
+        
+        val textView: TextView = view.findViewById(R.id.dialogRenameText)
+        val editText: EditText = view.findViewById(R.id.dialogRenameEdit)
+        textView.text = "Enter a new file name"
+        editText.setText(fileData.name)
+        
+        val alertDialog = AlertDialog.Builder(this)
+            .setTitle("Rename")
+            .setPositiveButton("done"){
+                    _, _ ->
+            }.setNegativeButton("cancel"){
+                    _, _ ->
+            }.create()
+        alertDialog.setView(view)
+        alertDialog.show()
+
+        alertDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if(editText.text.toString() == ""){
+                textView.text = "Enter more than one character"
+                textView.setTextColor(Color.RED)
+            }else{
+                updateFileData(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, editText.text.toString(), fileData.id)
+                data[position] = ScoreFileData(editText.text.toString(), fileData.author, fileData.isDirectory, fileData.img, fileData.id, fileData.prevFolderID)
+
+                //if ScoreFile need update Score DB
+                if(!fileData.isDirectory) {
+                    val db = ScoreContract.ScoreDBHelper(this).readableDatabase
+                    val projection = arrayOf(
+                        ScoreContract.ScoreEntry.COLUMN_NAME_TITLE,
+                        ScoreContract.ScoreEntry.COLUMN_NAME_LINES,
+                        ScoreContract.ScoreEntry.COLUMN_NAME_CHORDS,
+                        ScoreContract.ScoreEntry.COLUMN_NAME_LYRICS
+                    )
+
+                    val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} = ?"
+                    val selectionArgs = arrayOf(fileData.id)
+
+                    val cursor = db.query(
+                        ScoreContract.ScoreEntry.TABLE_NAME,
+                        projection,
+                        selection,
+                        selectionArgs,
+                        null,
+                        null,
+                        null
+                    )
+
+                    var lines = ""
+                    var chords = ""
+                    var lyrics = ""
+
+                    if (cursor.moveToFirst()) {
+                        lines = cursor.getString(1)
+                        chords = cursor.getString(2)
+                        lyrics = cursor.getString(3)
+                    }
+
+                    db.close()
+
+                    val dbWR = ScoreContract.ScoreDBHelper(this).writableDatabase
+                    var values = ContentValues().apply {
+                        put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, fileData.id)
+                        put(ScoreContract.ScoreEntry.COLUMN_NAME_TITLE, editText.text.toString())
+                        put(ScoreContract.ScoreEntry.COLUMN_NAME_LINES, lines)
+                        put(ScoreContract.ScoreEntry.COLUMN_NAME_CHORDS, chords)
+                        put(ScoreContract.ScoreEntry.COLUMN_NAME_LYRICS, lyrics)
+                    }
+
+                    dbWR?.update(
+                        ScoreContract.ScoreEntry.TABLE_NAME,
+                        values,
+                        selection,
+                        selectionArgs
+                    )
+
+                    dbWR.close()
+                }
+
+                applyRecycler()
+                alertDialog.dismiss()
+            }
+        }
+
+        alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+            alertDialog.dismiss()
+        }
+
+    }
+
+    private fun updateCurFolderData(updateKey: String, updateValue: String, subtract: Boolean = false){
         if(updateKey == FileContract.FileEntry.COLUMN_NAME_HAVING_FILES){
-            curFolderData[updateKey] += ("$updateValue|")
+            if(subtract){
+                curFolderData[updateKey] = curFolderData[updateKey]?.replace("$updateValue|", "").toString()
+                Log.e("REPLACE", curFolderData[updateKey] + " " + updateValue)
+            }else{
+                curFolderData[updateKey] += ("$updateValue|")
+            }
+
         }else{
             curFolderData[updateKey] = updateValue
         }
@@ -143,12 +298,91 @@ class MainActivity : AppCompatActivity() {
         val selection = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
         val selectionArgs = arrayOf(curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
 
-        val count = db?.update(
+        db?.update(
             FileContract.FileEntry.TABLE_NAME,
             values,
             selection,
             selectionArgs
         )
+    }
+
+    private fun updateFileData(updateKey: String, updateValue: String, id: String){
+        //read data
+        fileDBHelper = FileContract.FileDBHelper(this)
+        val dbRead = fileDBHelper.readableDatabase
+
+        val projection = arrayOf(
+            FileContract.FileEntry.COLUMN_NAME_IS_FOLDER,
+            FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME,
+            FileContract.FileEntry.COLUMN_NAME_HAVING_FILES,
+            FileContract.FileEntry.COLUMN_NAME_PREV)
+
+        val selectionRead = "${FileContract.FileEntry.COLUMN_NAME_ID} = ?"
+        val selectionArgsRead = arrayOf(id)
+
+        val cursor = dbRead.query(
+            FileContract.FileEntry.TABLE_NAME,
+            projection,
+            selectionRead,
+            selectionArgsRead,
+            null,
+            null,
+            null
+        )
+
+        var isFolder: String
+        var name: String
+        var having: String
+        var prev: String
+
+        if(cursor.moveToFirst()) {
+
+            isFolder = cursor.getString(0)
+            name = cursor.getString(1)
+            having = cursor.getString(2)
+            prev = cursor.getString(3)
+
+            dbRead.close()
+        }else {
+            dbRead.close()
+            return
+        }
+
+        //write(update) data
+
+        when(updateKey){
+            FileContract.FileEntry.COLUMN_NAME_HAVING_FILES ->
+                having += "$updateValue|"
+            FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME ->
+                name = updateValue
+            FileContract.FileEntry.COLUMN_NAME_IS_FOLDER ->
+                isFolder = updateValue
+            FileContract.FileEntry.COLUMN_NAME_PREV ->
+                prev = updateValue
+        }
+
+
+        fileDBHelper = FileContract.FileDBHelper(this)
+        val db = fileDBHelper.writableDatabase
+
+        var values = ContentValues().apply {
+            put(FileContract.FileEntry.COLUMN_NAME_ID, id)
+            put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder)
+            put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, having)
+            put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
+            put(FileContract.FileEntry.COLUMN_NAME_PREV, prev)
+        }
+
+        val selection = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
+        val selectionArgs = arrayOf(id)
+
+        db?.update(
+            FileContract.FileEntry.TABLE_NAME,
+            values,
+            selection,
+            selectionArgs
+        )
+        db.close()
     }
 
     private fun loadFolder(id: String): Boolean{
@@ -278,7 +512,7 @@ class MainActivity : AppCompatActivity() {
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder.toString())
             put(FileContract.FileEntry.COLUMN_NAME_PREV, curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
         }
-        val newRowId = db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
+        db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
 
         data.add(ScoreFileData(img = if(isFolder)R.drawable.ic_folder else R.drawable.ic_file, name = name,
             isDirectory = isFolder, id = id, author = "", prevFolderID = curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString()
@@ -299,7 +533,7 @@ class MainActivity : AppCompatActivity() {
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, true.toString())
             put(FileContract.FileEntry.COLUMN_NAME_PREV, "none")
         }
-        val newRowId = db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
+        db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
 
         curFolderData[FileContract.FileEntry.COLUMN_NAME_ID] = id
         curFolderData[FileContract.FileEntry.COLUMN_NAME_IS_FOLDER] = true.toString()

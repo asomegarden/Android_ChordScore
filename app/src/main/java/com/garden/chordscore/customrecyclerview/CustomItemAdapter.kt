@@ -1,6 +1,8 @@
 package com.garden.chordscore.customrecyclerview
 
+import android.app.Activity
 import android.content.Context
+import android.view.ContextMenu
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,7 +15,8 @@ import com.garden.chordscore.R
 class CustomItemAdapter(private val context: Context) : RecyclerView.Adapter<CustomItemAdapter.ViewHolder>() {
 
     var data = mutableListOf<ScoreFileData>()
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder{
         val view = LayoutInflater.from(context).inflate(R.layout.custom_recycler_item,parent,false)
         return ViewHolder(view)
     }
@@ -25,11 +28,19 @@ class CustomItemAdapter(private val context: Context) : RecyclerView.Adapter<Cus
     }
 
     interface OnItemClickListener{
-        fun onItemClick(v:View, data:ScoreFileData, position: Int)
+        fun onClick(v:View, fileData:ScoreFileData, position: Int)
     }
     private var listener: OnItemClickListener? = null
     fun setOnItemClickListener(listener: OnItemClickListener){
         this.listener = listener
+    }
+
+    interface OnItemLongClickListener{
+        fun onLongClick(v:View, fileData:ScoreFileData, position: Int)
+    }
+    private var longClickListener: OnItemLongClickListener? = null
+    fun setOnItemLongClickListener(listener: OnItemLongClickListener){
+        this.longClickListener = listener
     }
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -46,12 +57,14 @@ class CustomItemAdapter(private val context: Context) : RecyclerView.Adapter<Cus
             val pos = adapterPosition
             if(pos!= RecyclerView.NO_POSITION){
                 itemView.setOnClickListener{
-                    listener?.onItemClick(itemView, item, pos)
+                    listener?.onClick(itemView, item, pos)
+                }
+
+                itemView.setOnLongClickListener {
+                    longClickListener?.onLongClick(itemView, item, pos)
+                    return@setOnLongClickListener false
                 }
             }
-
         }
     }
-
-
 }
