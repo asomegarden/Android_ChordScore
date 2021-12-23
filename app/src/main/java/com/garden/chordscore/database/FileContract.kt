@@ -13,12 +13,11 @@ object FileContract {
         const val COLUMN_NAME_IS_FOLDER = "is_folder"
         //Boolean 타입
         const val COLUMN_NAME_FOLDER_NAME = "name"
-        //ㅍ폴더명
+        //폴더명
         const val COLUMN_NAME_HAVING_FILES = "have_files"
         //21321442|134124214|23124124
         //불러와서 파일이면 파일로 로딩 폴더면 폴더로 로딩
-        const val COLUMN_NAME_FILE_ID = "file_id"
-        //파일이면 파일 아이디 불러와서 이름이랑 표시하는 걸로
+        const val COLUMN_NAME_PREV = "prev_folder"
     }
 
     private const val SQL_CREATE_ENTRIES =
@@ -28,7 +27,7 @@ object FileContract {
                 "${FileEntry.COLUMN_NAME_IS_FOLDER} TEXT," +
                 "${FileEntry.COLUMN_NAME_FOLDER_NAME} TEXT," +
                 "${FileEntry.COLUMN_NAME_HAVING_FILES} TEXT," +
-                "${FileEntry.COLUMN_NAME_FILE_ID} TEXT)"
+                "${FileEntry.COLUMN_NAME_PREV} TEXT)"
 
     private const val SQL_DELETE_ENTRIES = "DROP TABLE IF EXISTS ${FileEntry.TABLE_NAME}"
 

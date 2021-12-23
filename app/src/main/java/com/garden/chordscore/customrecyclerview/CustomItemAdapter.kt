@@ -24,6 +24,14 @@ class CustomItemAdapter(private val context: Context) : RecyclerView.Adapter<Cus
         holder.bind(data[position])
     }
 
+    interface OnItemClickListener{
+        fun onItemClick(v:View, data:ScoreFileData, position: Int)
+    }
+    private var listener: OnItemClickListener? = null
+    fun setOnItemClickListener(listener: OnItemClickListener){
+        this.listener = listener
+    }
+
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
 
         private val textName: TextView = itemView.findViewById(R.id.text_name)
@@ -34,6 +42,13 @@ class CustomItemAdapter(private val context: Context) : RecyclerView.Adapter<Cus
             textName.text = item.name
             textAuthor.text = if(item.isDirectory) "" else item.author
             Glide.with(itemView).load(item.img).into(imgIcon)
+
+            val pos = adapterPosition
+            if(pos!= RecyclerView.NO_POSITION){
+                itemView.setOnClickListener{
+                    listener?.onItemClick(itemView, item, pos)
+                }
+            }
 
         }
     }

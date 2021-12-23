@@ -5,5 +5,6 @@ data class ScoreFileData (
     val author : String,
     val isDirectory : Boolean,
     val img : Int,
-    val id : String
+    val id : String,
+    val prevFolderID : String
 )

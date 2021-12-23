@@ -16,13 +16,23 @@ import com.garden.chordscore.database.FileContract
 import com.garden.chordscore.database.ScoreContract
 import java.sql.Time
 import java.util.*
+import androidx.core.app.ActivityCompat
+
+import android.content.SharedPreferences
+import android.util.Log
+import android.view.View
+
+import android.widget.Toast
+
+
+
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var scoreDBHelper: ScoreContract.ScoreDBHelper
     private lateinit var fileDBHelper: FileContract.FileDBHelper
 
-    private lateinit var profileAdapter: CustomItemAdapter
+    private lateinit var fileAdapter: CustomItemAdapter
     private val data = mutableListOf<ScoreFileData>()
     private lateinit var listview: RecyclerView
 
@@ -39,7 +49,7 @@ class MainActivity : AppCompatActivity() {
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, "")
             put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, "")
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
-            put(FileContract.FileEntry.COLUMN_NAME_FILE_ID, "")
+            put(FileContract.FileEntry.COLUMN_NAME_PREV, "none")
         }
 
         val btnCreateFolder: ImageButton = findViewById(R.id.btn_create_folder)
@@ -48,26 +58,20 @@ class MainActivity : AppCompatActivity() {
         folderName = findViewById(R.id.text_current_locate)
         listview = findViewById(R.id.listview)
 
-        initMainFolder()
-        //현재 CreateFolder 메소드가 폴더를 생성하는데 첫 실행 때 메인 폴더를 생성할 경우에는 
-        // 현재 폴더를 바꾸는 거지만 평소에는 현재 폴더에 하위 폴더를 생성함 그래서 구분이 필요함 수정 필요
-        
-        // 구분 완료
-        
-        
-        //이제 뒤로가기 누르면 이전 폴더로 가야됨. 그래서 파일 정보를 저장할 때 상위 폴더의 아이디를 저장할 필요가 있음
-        //또 이제 악보 파일에서 이름을 수정하면 목록 파일에서도 다른 이름으로 보여져야함. 그래서 아예 파일의 경우에는 이름을 
-        //이름과 작곡가 데이터등을 직접 불러와서 쓰는걸로 하는게 어떨까 싶음
-        //name 필드는 폴더만 사용하는 걸로 그리고 악보 데이터베이스와 파일 데이터베이스는 완전 다르므로 아이디를 공유해도 될듯함
-        //그래서 isFolder가 false이면 그 아이디를 그대로 사용
-        //그래서 FileID 필드는 삭제해도 될듯 지금 파일 데이터베이스가 조금 모호한 필드 구분이라 이렇게 수정하면 좀 괜찮아질듯
-        //그리고 중복되는 이름의 경우에는 뒤에 1을 붙이는 식으로 구분할 필요가 있음 (1)을 붙이면 될듯
-        //그러려면 파일 이름을 모두 리스트에 저장해두고 중복 개수에 따라 처리할 필요가 있음
-
+        if(intent.hasExtra("id")){
+            initRecycler()
+            loadFolder(intent.getStringExtra("id").toString())
+        }else {
+            initRecycler()
+            initMainFolder()
+        }
 
         btnCreateFolder.setOnClickListener{
             var id = System.currentTimeMillis().hashCode().toString()
-            createFile(id, "new folder")
+            val count = data.count{ it.name.slice(0..9) == "new folder" }
+
+            createFile(id, if(count == 0)"new folder" else "new folder ($count)")
+
             updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, id)
         }
 
@@ -75,12 +79,15 @@ class MainActivity : AppCompatActivity() {
             val intent: Intent = Intent(this, ScoreActivity::class.java)
 
             val id = System.currentTimeMillis().toString()
+            val count = data.count{ it.name.slice(0..8) == "new score" }
+
+            val name = if(count == 0) "new score" else "new score ($count)"
             //create_new_note
             scoreDBHelper = ScoreContract.ScoreDBHelper(this)
             val db = scoreDBHelper.writableDatabase
             var values = ContentValues().apply {
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, id)
-                put(ScoreContract.ScoreEntry.COLUMN_NAME_TITLE, "new score")
+                put(ScoreContract.ScoreEntry.COLUMN_NAME_TITLE, name)
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_LINES, 1)
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_CHORDS, "")
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_LYRICS, "")
@@ -91,12 +98,27 @@ class MainActivity : AppCompatActivity() {
             //이때 Score 데이터 생성과 동시에 File 데이터도 생성해서 폴더에 따로 포함시켜줘야함
             //일단 목이 아파서 오늘은 여기까지
 
-            createFile(id = id, name = "new score", isFolder = false, fileID = id)
+            createFile(id = id, name = name, isFolder = false)
             updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, id)
 
             intent.putExtra("id", id)
+            intent.putExtra("prev", curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
             startActivity(intent)
         }
+
+        fileAdapter?.setOnItemClickListener(object: CustomItemAdapter.OnItemClickListener{
+            override fun onItemClick(v: View, fileData: ScoreFileData, position: Int) {
+                if(fileData.isDirectory){
+                    loadFolder(fileData.id)
+                }else{
+                    val intent: Intent = Intent(this@MainActivity, ScoreActivity::class.java)
+
+                    intent.putExtra("id", fileData.id)
+                    intent.putExtra("prev", curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
+                    startActivity(intent)
+                }
+            }
+        })
 
     }
 
@@ -113,9 +135,9 @@ class MainActivity : AppCompatActivity() {
         var values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_ID, curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, curFolderData[FileContract.FileEntry.COLUMN_NAME_IS_FOLDER])
-            put(FileContract.FileEntry.COLUMN_NAME_FILE_ID, curFolderData[FileContract.FileEntry.COLUMN_NAME_FILE_ID])
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, curFolderData[FileContract.FileEntry.COLUMN_NAME_HAVING_FILES])
             put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, curFolderData[FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME])
+            put(FileContract.FileEntry.COLUMN_NAME_PREV, curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV])
         }
 
         val selection = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
@@ -139,7 +161,7 @@ class MainActivity : AppCompatActivity() {
             FileContract.FileEntry.COLUMN_NAME_IS_FOLDER,
             FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME,
             FileContract.FileEntry.COLUMN_NAME_HAVING_FILES,
-            FileContract.FileEntry.COLUMN_NAME_FILE_ID)
+            FileContract.FileEntry.COLUMN_NAME_PREV)
 
         val selection = "${FileContract.FileEntry.COLUMN_NAME_ID} = ?"
         val selectionArgs = arrayOf(id)
@@ -160,7 +182,7 @@ class MainActivity : AppCompatActivity() {
             curFolderData[FileContract.FileEntry.COLUMN_NAME_IS_FOLDER] = cursor.getString(1)
             curFolderData[FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME] = cursor.getString(2)
             curFolderData[FileContract.FileEntry.COLUMN_NAME_HAVING_FILES] = cursor.getString(3)
-            curFolderData[FileContract.FileEntry.COLUMN_NAME_FILE_ID] = cursor.getString(4)
+            curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV] = cursor.getString(4)
 
             val fileIDList: MutableList<String> = mutableListOf<String>()
             folderName.text = cursor.getString(2)
@@ -171,58 +193,13 @@ class MainActivity : AppCompatActivity() {
 
             loadFileFromID(fileIDList)
 
-            applyRecycler()
-        }else return false
+        }else{
+            fileDBHelper.close()
+            return false
+        }
 
         fileDBHelper.close()
         return true
-    }
-
-    private fun createFile(id: String, name: String = "Home", fileID: String = "", isFolder: Boolean = true){
-        fileDBHelper = FileContract.FileDBHelper(this)
-        val db = fileDBHelper.writableDatabase
-        var values = ContentValues().apply {
-            put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
-            put(FileContract.FileEntry.COLUMN_NAME_FILE_ID, fileID)
-            put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
-            put(FileContract.FileEntry.COLUMN_NAME_ID, id)
-            put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder.toString())
-        }
-        val newRowId = db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
-
-        data.add(ScoreFileData(img = if(isFolder)R.drawable.ic_folder else R.drawable.ic_file, name = name, isDirectory = true, id = id, author = ""))
-
-        applyRecycler()
-        fileDBHelper.close()
-    }
-
-    private fun createFolderCurrent(id: String, name: String = "Home"){
-        fileDBHelper = FileContract.FileDBHelper(this)
-        val db = fileDBHelper.writableDatabase
-
-        var values = ContentValues().apply {
-            put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
-            put(FileContract.FileEntry.COLUMN_NAME_FILE_ID, "")
-            put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
-            put(FileContract.FileEntry.COLUMN_NAME_ID, id)
-            put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, true.toString())
-        }
-        val newRowId = db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
-
-        curFolderData[FileContract.FileEntry.COLUMN_NAME_ID] = id
-        curFolderData[FileContract.FileEntry.COLUMN_NAME_IS_FOLDER] = true.toString()
-        curFolderData[FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME] = name
-        curFolderData[FileContract.FileEntry.COLUMN_NAME_HAVING_FILES] = ""
-        curFolderData[FileContract.FileEntry.COLUMN_NAME_FILE_ID] = ""
-
-        folderName.text = name
-        fileDBHelper.close()
-    }
-
-    private fun initMainFolder(){
-        if(!loadFolder("MAIN")){
-            createFolderCurrent("MAIN")
-        }
     }
 
     private fun loadFileFromID(idList: MutableList<String>){
@@ -232,8 +209,7 @@ class MainActivity : AppCompatActivity() {
         val projection = arrayOf(
             FileContract.FileEntry.COLUMN_NAME_ID,
             FileContract.FileEntry.COLUMN_NAME_IS_FOLDER,
-            FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME,
-            FileContract.FileEntry.COLUMN_NAME_FILE_ID)
+            FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME)
 
         for(id in idList){
 
@@ -252,12 +228,15 @@ class MainActivity : AppCompatActivity() {
 
             if(cursor.moveToFirst()){
                 if(cursor.getString(1).toBoolean()){
-                    data.add(ScoreFileData(img = R.drawable.ic_folder, name = cursor.getString(2), isDirectory = true, id = cursor.getString(0), author = ""))
+                    data.add(ScoreFileData(img = R.drawable.ic_folder, name = cursor.getString(2), isDirectory = true, id = cursor.getString(0),
+                        author = "", prevFolderID = curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString()))
                 }else{
                     loadScoreFromID(cursor.getString(0))
                 }
             }
         }
+
+        applyRecycler()
 
         fileDBHelper.close()
     }
@@ -283,20 +262,96 @@ class MainActivity : AppCompatActivity() {
         )
 
         if(cursor.moveToFirst()){
-            data.add(ScoreFileData(img = R.drawable.ic_file, name = cursor.getString(0), isDirectory = false, id = id, author = cursor.getString(0)))
+            data.add(ScoreFileData(img = R.drawable.ic_file, name = cursor.getString(0),
+                isDirectory = false, id = id, author = cursor.getString(0), prevFolderID = curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString()))
         }
         scoreDBHelper.close()
     }
 
+    private fun createFile(id: String, name: String = "Home", isFolder: Boolean = true){
+        fileDBHelper = FileContract.FileDBHelper(this)
+        val db = fileDBHelper.writableDatabase
+        var values = ContentValues().apply {
+            put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
+            put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
+            put(FileContract.FileEntry.COLUMN_NAME_ID, id)
+            put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder.toString())
+            put(FileContract.FileEntry.COLUMN_NAME_PREV, curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
+        }
+        val newRowId = db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
+
+        data.add(ScoreFileData(img = if(isFolder)R.drawable.ic_folder else R.drawable.ic_file, name = name,
+            isDirectory = isFolder, id = id, author = "", prevFolderID = curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString()
+        ))
+
+        applyRecycler()
+        fileDBHelper.close()
+    }
+
+    private fun createMainFolder(id: String, name: String = "Home"){
+        fileDBHelper = FileContract.FileDBHelper(this)
+        val db = fileDBHelper.writableDatabase
+
+        var values = ContentValues().apply {
+            put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
+            put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
+            put(FileContract.FileEntry.COLUMN_NAME_ID, id)
+            put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, true.toString())
+            put(FileContract.FileEntry.COLUMN_NAME_PREV, "none")
+        }
+        val newRowId = db?.insert(FileContract.FileEntry.TABLE_NAME, null, values)
+
+        curFolderData[FileContract.FileEntry.COLUMN_NAME_ID] = id
+        curFolderData[FileContract.FileEntry.COLUMN_NAME_IS_FOLDER] = true.toString()
+        curFolderData[FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME] = name
+        curFolderData[FileContract.FileEntry.COLUMN_NAME_HAVING_FILES] = ""
+        curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV] = "none"
+
+        folderName.text = name
+        fileDBHelper.close()
+    }
+
+    private fun initMainFolder(){
+        if(!loadFolder("MAIN")){
+            createMainFolder("MAIN")
+        }
+    }
+
+    private fun initRecycler(){
+        fileAdapter = CustomItemAdapter(this)
+        listview.adapter = fileAdapter
+        fileAdapter.data = data
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     private fun applyRecycler() {
-        profileAdapter = CustomItemAdapter(this)
-        listview.adapter = profileAdapter
+        fileAdapter.notifyDataSetChanged()
+    }
 
-        //rv_profile.addItemDecoration(VerticalItemDecorator(20))
-        //rv_profile.addItemDecoration(HorizontalItemDecorator(10))
+    //뒤로가기 두번 누르면 종료
+    private var backKeyPressedTime: Long = 0
+    private var toast: Toast? = null
+    val PREFNAME = "Preferences"
 
-        profileAdapter.data = data
-        profileAdapter.notifyDataSetChanged()
+    override fun onBackPressed() {
+        if(curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV] == "none"){
+            if (System.currentTimeMillis() > backKeyPressedTime + 2000) {
+                backKeyPressedTime = System.currentTimeMillis()
+                toast = Toast.makeText(this, "뒤로 버튼을 한번 더 누르시면 종료됩니다.", Toast.LENGTH_SHORT)
+                toast?.show()
+                return
+            }
+
+            if (System.currentTimeMillis() <= backKeyPressedTime + 2000) {
+                val settings = getSharedPreferences(PREFNAME, MODE_PRIVATE)
+                val editor = settings.edit()
+                editor.putBoolean("Appexec", true)
+                editor.apply()
+                ActivityCompat.finishAffinity(this)
+                toast?.cancel()
+            }
+        }else{
+            loadFolder(curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV].toString())
+        }
     }
 }

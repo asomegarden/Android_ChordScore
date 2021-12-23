@@ -33,6 +33,8 @@ class ScoreActivity : AppCompatActivity() {
 
     private var ID: String = ""
 
+    private var prevFolderID = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_score)
@@ -50,16 +52,14 @@ class ScoreActivity : AppCompatActivity() {
             makeLine(linearParent)
         }
 
-        btnBack.setOnClickListener {
-            saveDB()
-
-            val intent: Intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
+        prevFolderID = if(intent.hasExtra("prev")){
+            intent.getStringExtra("prev").toString()
+        }else{
+            "MAIN"
         }
 
-        btnNewLine.setOnClickListener {
-            makeLine(parentView = linearParent)
-        }
+        btnBack.setOnClickListener{ goBack() }
+        btnNewLine.setOnClickListener { makeLine(parentView = linearParent) }
     }
 
     private fun saveDB(){
@@ -159,11 +159,6 @@ class ScoreActivity : AppCompatActivity() {
         val selectionArgs = arrayOf(id)
         val deletedRows = db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
 
-        super.onBackPressed()
-    }
-
-    override fun onBackPressed() {
-        saveDB()
         super.onBackPressed()
     }
 
@@ -327,6 +322,16 @@ class ScoreActivity : AppCompatActivity() {
         }
 
         linearView.addView(dynamicAddChordButton)
+    }
+
+    override fun onBackPressed() = goBack()
+
+    private fun goBack(){
+        saveDB()
+
+        val intent: Intent = Intent(this, MainActivity::class.java)
+        intent.putExtra("id", prevFolderID)
+        startActivity(intent)
     }
 
     private fun getDP(value : Int) : Int = (value * resources.displayMetrics.density).roundToInt()
