@@ -67,7 +67,9 @@ class MainActivity : AppCompatActivity() {
 
         btnCreateFolder.setOnClickListener{
             var id = System.currentTimeMillis().hashCode().toString()
-            val count = data.count{ it.name.slice(0..9) == "new folder" }
+            val count = data.count{
+                if(it.name.length > 9) it.name.slice(0..9) == "new folder" else false
+            }
 
             createFile(id, if(count == 0)"new folder" else "new folder ($count)")
 
@@ -78,7 +80,7 @@ class MainActivity : AppCompatActivity() {
             val intent: Intent = Intent(this, ScoreActivity::class.java)
 
             val id = System.currentTimeMillis().toString()
-            val count = data.count{ it.name.slice(0..8) == "new score" }
+            val count = data.count{ if(it.name.length > 7) it.name.slice(0..8) == "new score" else false }
 
             val name = if(count == 0) "new score" else "new score ($count)"
             //create_new_note
@@ -155,28 +157,76 @@ class MainActivity : AppCompatActivity() {
             updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, fileData.id, true)
             applyRecycler()
 
-            val dbFile = FileContract.FileDBHelper(this).writableDatabase
-            val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
-            val selectionArgsFile = arrayOf(fileData.id)
-            dbFile.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
-            dbFile.close()
-
             if(!fileData.isDirectory){
                 val db = ScoreContract.ScoreDBHelper(this).writableDatabase
                 val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
                 val selectionArgs = arrayOf(fileData.id)
                 db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
                 db.close()
+            }else{
+                clearFolder(fileData.id)
             }
+
+            val dbFile = FileContract.FileDBHelper(this).writableDatabase
+            val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
+            val selectionArgsFile = arrayOf(fileData.id)
+            dbFile.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
+            dbFile.close()
         })
         builder.setNegativeButton("no", null)
         builder.show()
-        
-        //폴더를 지울 경우 폴더 내부에 있는 다른 파일들을 재귀적으로 모두 삭제할 필요가 있음
-        //clear folder 함수를 만들면 좋을 것 같음
-        //prev가 같으면 같은 깊이에 있는 폴더니까 그렇게 지워나가면 될듯
-        //근데 문제는 그 파일들이 또 파일을 가지고 있는 폴더일 경우 그걸 하나하나 확인하기가 힘들듯
-        //음 일단 같은 깊이에 있는 파일을 모두 불러와서 커서로 하나하나 확인하면서 재귀적으로 호출해나가면 될듯
+
+    }
+
+    private fun clearFolder(id: String){
+        val dbRD = FileContract.FileDBHelper(this).readableDatabase
+        val dbWR = FileContract.FileDBHelper(this).writableDatabase
+
+        val selectionRead = "${FileContract.FileEntry.COLUMN_NAME_ID} = ?"
+
+        val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
+
+        val projection = arrayOf(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES,
+            FileContract.FileEntry.COLUMN_NAME_IS_FOLDER)
+
+        val selectionArgsRead = arrayOf(id)
+
+        val cursor = dbRD.query(
+            FileContract.FileEntry.TABLE_NAME,
+            projection,
+            selectionRead,
+            selectionArgsRead,
+            null,
+            null,
+            null
+        )
+
+        if(cursor.moveToFirst()){
+            val isFolder = cursor.getString(1)
+
+            if(isFolder.toBoolean()){
+                val havingFiles = cursor.getString(0).split("|")
+
+                havingFiles.forEach {
+                    if(it.isNotEmpty()){
+                        clearFolder(it)
+                    }
+                }
+
+                havingFiles.forEach {
+                    val selectionArgsFile = arrayOf(it)
+                    dbWR.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
+                }
+            }
+        }else{
+            dbRD.close()
+            dbWR.close()
+
+            return
+        }
+
+        dbRD.close()
+        dbWR.close()
     }
 
     private fun popupRenameMenu(fileData: ScoreFileData, position: Int){
