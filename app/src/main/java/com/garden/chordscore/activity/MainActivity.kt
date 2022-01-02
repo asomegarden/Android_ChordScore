@@ -16,6 +16,9 @@ import java.util.*
 import androidx.core.app.ActivityCompat
 
 import android.graphics.Color
+import android.media.Image
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -23,6 +26,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
+import androidx.core.widget.addTextChangedListener
 import java.io.File
 import java.text.FieldPosition
 
@@ -35,9 +39,13 @@ class MainActivity : AppCompatActivity() {
     private val data = mutableListOf<ScoreFileData>()
     private lateinit var listview: RecyclerView
 
+    private lateinit var btnBack: ImageButton
     private lateinit var folderName: TextView
 
     private var curFolderData: MutableMap<String, String> = mutableMapOf()
+
+    private var previousPos: String = ""
+    private var moveFile: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,7 +61,13 @@ class MainActivity : AppCompatActivity() {
 
         val btnCreateFolder: ImageButton = findViewById(R.id.btn_create_folder)
         val btnCreateNote: ImageButton = findViewById(R.id.btn_create_note)
+        val btnMoveDrop: Button = findViewById(R.id.btn_move_drop)
+        val btnMoveCancel: Button = findViewById(R.id.btn_move_cancel)
+        val textMoveFile: TextView = findViewById(R.id.textview_move_file)
+        val layoutMove: RelativeLayout = findViewById(R.id.layout_move)
+        val editSearch: EditText = findViewById(R.id.edit_search)
 
+        btnBack = findViewById(R.id.btn_back)
         folderName = findViewById(R.id.text_current_locate)
         listview = findViewById(R.id.listview)
 
@@ -63,6 +77,7 @@ class MainActivity : AppCompatActivity() {
         }else {
             initRecycler()
             initMainFolder()
+            btnBack.visibility = View.GONE
         }
 
         btnCreateFolder.setOnClickListener{
@@ -95,9 +110,6 @@ class MainActivity : AppCompatActivity() {
             }
             db?.insert(ScoreContract.ScoreEntry.TABLE_NAME, null, values)
             scoreDBHelper.close()
-            
-            //이때 Score 데이터 생성과 동시에 File 데이터도 생성해서 폴더에 따로 포함시켜줘야함
-            //일단 목이 아파서 오늘은 여기까지
 
             createFile(id = id, name = name, isFolder = false)
             updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, id)
@@ -106,6 +118,50 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra("prev", curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
             startActivity(intent)
         }
+
+        btnBack.setOnClickListener {
+            loadFolder(curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV].toString())
+        }
+
+        btnMoveDrop.setOnClickListener {
+            if(previousPos != curFolderData[FileContract.FileEntry.COLUMN_NAME_ID]) {
+                updateFileData(
+                    FileContract.FileEntry.COLUMN_NAME_HAVING_FILES,
+                    moveFile,
+                    previousPos,
+                    true
+                )
+                updateFileData(FileContract.FileEntry.COLUMN_NAME_PREV, curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString(), moveFile)
+                updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, moveFile)
+                loadFolder(curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString())
+            }
+            layoutMove.visibility = View.GONE
+        }
+
+        btnMoveCancel.setOnClickListener {
+            layoutMove.visibility = View.GONE
+        }
+
+        editSearch.addTextChangedListener(object: TextWatcher{
+            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+
+            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+
+            override fun afterTextChanged(edit: Editable?) {
+                var backupList: MutableList<ScoreFileData> = mutableListOf()
+                loadFolder(curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString())
+                data.forEach {
+                    if(it.name.contains(edit.toString())){
+                        backupList.add(it)
+                    }
+                }
+
+                data.clear()
+                data.addAll(backupList)
+
+                applyRecycler()
+            }
+        })
 
         this.fileAdapter.setOnItemClickListener(object: CustomItemAdapter.OnItemClickListener{
             override fun onClick(v: View, fileData: ScoreFileData, position: Int) {
@@ -130,11 +186,19 @@ class MainActivity : AppCompatActivity() {
                         when(selMenu!!.itemId){
                             R.id.menu_rename->{
                                 popupRenameMenu(fileData, position)
+                                layoutMove.visibility = View.GONE
                                 return true
                             }
                             R.id.menu_delete->{
                                 popupDeleteMenu(fileData)
+                                layoutMove.visibility = View.GONE
                                 return true
+                            }
+                            R.id.menu_move->{
+                                textMoveFile.text = fileData.name
+                                moveFile = fileData.id
+                                previousPos = curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString()
+                                layoutMove.visibility = View.VISIBLE
                             }
                         }
                         return false
@@ -151,19 +215,19 @@ class MainActivity : AppCompatActivity() {
         builder.setTitle("Delete")
         builder.setMessage("Really?")
 
-        builder.setPositiveButton("yes", DialogInterface.OnClickListener { _, _ ->
+        builder.setPositiveButton("yes") { _, _ ->
             data.remove(fileData)
 
             updateCurFolderData(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, fileData.id, true)
             applyRecycler()
 
-            if(!fileData.isDirectory){
+            if (!fileData.isDirectory) {
                 val db = ScoreContract.ScoreDBHelper(this).writableDatabase
                 val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
                 val selectionArgs = arrayOf(fileData.id)
                 db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
                 db.close()
-            }else{
+            } else {
                 clearFolder(fileData.id)
             }
 
@@ -172,7 +236,7 @@ class MainActivity : AppCompatActivity() {
             val selectionArgsFile = arrayOf(fileData.id)
             dbFile.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
             dbFile.close()
-        })
+        }
         builder.setNegativeButton("no", null)
         builder.show()
 
@@ -325,7 +389,6 @@ class MainActivity : AppCompatActivity() {
         if(updateKey == FileContract.FileEntry.COLUMN_NAME_HAVING_FILES){
             if(subtract){
                 curFolderData[updateKey] = curFolderData[updateKey]?.replace("$updateValue|", "").toString()
-                Log.e("REPLACE", curFolderData[updateKey] + " " + updateValue)
             }else{
                 curFolderData[updateKey] += ("$updateValue|")
             }
@@ -356,7 +419,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun updateFileData(updateKey: String, updateValue: String, id: String){
+    private fun updateFileData(updateKey: String, updateValue: String, id: String, subtract: Boolean = false){
         //read data
         fileDBHelper = FileContract.FileDBHelper(this)
         val dbRead = fileDBHelper.readableDatabase
@@ -401,8 +464,14 @@ class MainActivity : AppCompatActivity() {
         //write(update) data
 
         when(updateKey){
-            FileContract.FileEntry.COLUMN_NAME_HAVING_FILES ->
-                having += "$updateValue|"
+            FileContract.FileEntry.COLUMN_NAME_HAVING_FILES -> {
+                if(subtract){
+                    having = having.replace("$updateValue|", "")
+                    Log.d("MOVETEST", having)
+                }else{
+                    having += "$updateValue|"
+                }
+            }
             FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME ->
                 name = updateValue
             FileContract.FileEntry.COLUMN_NAME_IS_FOLDER ->
@@ -437,6 +506,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadFolder(id: String): Boolean{
         data.clear()
+
+        btnBack.visibility = if(id == "MAIN") View.GONE else View.VISIBLE
         fileDBHelper = FileContract.FileDBHelper(this)
         val db = fileDBHelper.readableDatabase
 

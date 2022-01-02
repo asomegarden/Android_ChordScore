@@ -9,14 +9,14 @@ import android.os.Bundle
 import android.provider.BaseColumns
 import android.text.TextUtils
 import android.util.Log
-import android.view.Gravity
-import android.view.MotionEvent
-import android.view.ViewGroup
+import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.annotation.Dimension
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.garden.chordscore.R
+import com.garden.chordscore.customrecyclerview.ScoreFileData
 import com.garden.chordscore.database.FileContract
 import com.garden.chordscore.database.ScoreContract
 import kotlin.math.abs
@@ -44,6 +44,7 @@ class ScoreActivity : AppCompatActivity() {
 
         val btnBack: ImageButton = findViewById(R.id.btn_back)
         val btnNewLine: ImageButton = findViewById(R.id.btn_new_line)
+        val btnOther: ImageButton = findViewById(R.id.btn_others)
 
         editTitle = findViewById(R.id.edit_name)
         linearParent = findViewById(R.id.linear_parent)
@@ -63,7 +64,34 @@ class ScoreActivity : AppCompatActivity() {
 
         btnBack.setOnClickListener{ goBack() }
         btnNewLine.setOnClickListener { makeLine(parentView = linearParent) }
+
+        btnOther.setOnClickListener {
+            val popupMenu = PopupMenu(this, btnOther, Gravity.END)
+            menuInflater.inflate(R.menu.score_menu, popupMenu.menu)
+            popupMenu.setOnMenuItemClickListener ( object: PopupMenu.OnMenuItemClickListener {
+                override fun onMenuItemClick(selMenu: MenuItem?): Boolean {
+                    when(selMenu!!.itemId){
+                        R.id.menu_delete->{
+                            val builder = AlertDialog.Builder(this@ScoreActivity)
+                            builder.setTitle("Delete")
+                            builder.setMessage("Really?")
+
+                            builder.setPositiveButton("yes") { _, _ ->
+                                removeDB()
+                            }
+                            builder.setNegativeButton("no", null)
+                            builder.show()
+                            return true
+                        }
+                    }
+                    return false
+                }
+            })
+            popupMenu.show()
+        }
+
     }
+
 
     private fun saveDB(){
         val db = dbHelper.writableDatabase
@@ -155,10 +183,10 @@ class ScoreActivity : AppCompatActivity() {
         db.close()
     }
 
-    private fun removeDB(id: String){
+    private fun removeDB(){
         val db = dbHelper.writableDatabase
         val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
-        val selectionArgs = arrayOf(id)
+        val selectionArgs = arrayOf(ID)
         val deletedRows = db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
         db.close()
 
@@ -183,10 +211,10 @@ class ScoreActivity : AppCompatActivity() {
             null
         )
 
-        var isFolder = ""
-        var name = ""
-        var having = ""
-        var prev = ""
+        var isFolder: String
+        var name: String
+        var having: String
+        var prev: String
 
         if(cursor.moveToFirst()) {
 
@@ -201,7 +229,9 @@ class ScoreActivity : AppCompatActivity() {
             return
         }
 
-        having.replace("$id|", "")
+        having = having.replace("$ID|", "")
+
+        val dbWR = FileContract.FileDBHelper(this).writableDatabase
 
         var values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_ID, prevFolderID)
@@ -211,19 +241,17 @@ class ScoreActivity : AppCompatActivity() {
             put(FileContract.FileEntry.COLUMN_NAME_PREV, prev)
         }
 
-        val dbFile = FileContract.FileDBHelper(this).writableDatabase
+        val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
+        val selectionArgsFile = arrayOf(prevFolderID)
 
-        val count = dbFile?.update(
+        dbWR?.update(
             FileContract.FileEntry.TABLE_NAME,
             values,
-            selection,
-            selectionArgs
+            selectionFile,
+            selectionArgsFile
         )
 
-        val selectionFile = "${FileContract.FileEntry.COLUMN_NAME_ID} LIKE ?"
-        val selectionArgsFile = arrayOf(id)
-        val deleteRowsFile = dbFile.delete(FileContract.FileEntry.TABLE_NAME, selectionFile, selectionArgsFile)
-        dbFile.close()
+        dbWR.close()
 
         goBack()
     }
