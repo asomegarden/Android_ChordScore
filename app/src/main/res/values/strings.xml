@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Code Score</string>
+    <string name="app_name">Chord Score</string>
 
     <string-array name="Chords">
         <item>E</item>
