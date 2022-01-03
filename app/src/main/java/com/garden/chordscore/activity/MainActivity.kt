@@ -4,31 +4,24 @@ import android.annotation.SuppressLint
 import android.content.*
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.provider.BaseColumns
 import androidx.recyclerview.widget.RecyclerView
 import com.garden.chordscore.customrecyclerview.CustomItemAdapter
 import com.garden.chordscore.customrecyclerview.ScoreFileData
 import com.garden.chordscore.R
 import com.garden.chordscore.database.FileContract
 import com.garden.chordscore.database.ScoreContract
-import java.sql.Time
 import java.util.*
 import androidx.core.app.ActivityCompat
 
 import android.graphics.Color
-import android.media.Image
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
-import androidx.core.widget.addTextChangedListener
-import java.io.File
-import java.text.FieldPosition
 
 
 class MainActivity : AppCompatActivity() {
@@ -81,7 +74,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnCreateFolder.setOnClickListener{
-            var id = System.currentTimeMillis().hashCode().toString()
+            val id = System.currentTimeMillis().hashCode().toString()
             val count = data.count{
                 if(it.name.length > 9) it.name.slice(0..9) == "new folder" else false
             }
@@ -92,7 +85,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnCreateNote.setOnClickListener{
-            val intent: Intent = Intent(this, ScoreActivity::class.java)
+            val intent = Intent(this, ScoreActivity::class.java)
 
             val id = System.currentTimeMillis().toString()
             val count = data.count{ if(it.name.length > 7) it.name.slice(0..8) == "new score" else false }
@@ -101,7 +94,7 @@ class MainActivity : AppCompatActivity() {
             //create_new_note
             scoreDBHelper = ScoreContract.ScoreDBHelper(this)
             val db = scoreDBHelper.writableDatabase
-            var values = ContentValues().apply {
+            val values = ContentValues().apply {
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, id)
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_TITLE, name)
                 put(ScoreContract.ScoreEntry.COLUMN_NAME_LINES, 1)
@@ -148,7 +141,7 @@ class MainActivity : AppCompatActivity() {
             override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {}
 
             override fun afterTextChanged(edit: Editable?) {
-                var backupList: MutableList<ScoreFileData> = mutableListOf()
+                val backupList: MutableList<ScoreFileData> = mutableListOf()
                 loadFolder(curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString())
                 data.forEach {
                     if(it.name.contains(edit.toString())){
@@ -168,7 +161,7 @@ class MainActivity : AppCompatActivity() {
                 if(fileData.isDirectory){
                     loadFolder(fileData.id)
                 }else{
-                    val intent: Intent = Intent(this@MainActivity, ScoreActivity::class.java)
+                    val intent = Intent(this@MainActivity, ScoreActivity::class.java)
 
                     intent.putExtra("id", fileData.id)
                     intent.putExtra("prev", curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
@@ -289,6 +282,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        cursor.close()
+
         dbRD.close()
         dbWR.close()
     }
@@ -300,6 +295,7 @@ class MainActivity : AppCompatActivity() {
         val textView: TextView = view.findViewById(R.id.dialogRenameText)
         val editText: EditText = view.findViewById(R.id.dialogRenameEdit)
         textView.text = "Enter a new file name"
+
         editText.setText(fileData.name)
         
         val alertDialog = AlertDialog.Builder(this)
@@ -356,7 +352,7 @@ class MainActivity : AppCompatActivity() {
                     db.close()
 
                     val dbWR = ScoreContract.ScoreDBHelper(this).writableDatabase
-                    var values = ContentValues().apply {
+                    val values = ContentValues().apply {
                         put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, fileData.id)
                         put(ScoreContract.ScoreEntry.COLUMN_NAME_TITLE, editText.text.toString())
                         put(ScoreContract.ScoreEntry.COLUMN_NAME_LINES, lines)
@@ -371,6 +367,7 @@ class MainActivity : AppCompatActivity() {
                         selectionArgs
                     )
 
+                    cursor.close()
                     dbWR.close()
                 }
 
@@ -400,7 +397,7 @@ class MainActivity : AppCompatActivity() {
         fileDBHelper = FileContract.FileDBHelper(this)
         val db = fileDBHelper.writableDatabase
 
-        var values = ContentValues().apply {
+        val values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_ID, curFolderData[FileContract.FileEntry.COLUMN_NAME_ID])
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, curFolderData[FileContract.FileEntry.COLUMN_NAME_IS_FOLDER])
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, curFolderData[FileContract.FileEntry.COLUMN_NAME_HAVING_FILES])
@@ -467,7 +464,6 @@ class MainActivity : AppCompatActivity() {
             FileContract.FileEntry.COLUMN_NAME_HAVING_FILES -> {
                 if(subtract){
                     having = having.replace("$updateValue|", "")
-                    Log.d("MOVETEST", having)
                 }else{
                     having += "$updateValue|"
                 }
@@ -484,7 +480,7 @@ class MainActivity : AppCompatActivity() {
         fileDBHelper = FileContract.FileDBHelper(this)
         val db = fileDBHelper.writableDatabase
 
-        var values = ContentValues().apply {
+        val values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_ID, id)
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder)
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, having)
@@ -501,6 +497,8 @@ class MainActivity : AppCompatActivity() {
             selection,
             selectionArgs
         )
+
+        cursor.close()
         db.close()
     }
 
@@ -539,7 +537,7 @@ class MainActivity : AppCompatActivity() {
             curFolderData[FileContract.FileEntry.COLUMN_NAME_HAVING_FILES] = cursor.getString(3)
             curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV] = cursor.getString(4)
 
-            val fileIDList: MutableList<String> = mutableListOf<String>()
+            val fileIDList: MutableList<String> = mutableListOf()
             folderName.text = cursor.getString(2)
 
             for(fileData in cursor.getString(3).split("|")){
@@ -549,11 +547,12 @@ class MainActivity : AppCompatActivity() {
             loadFileFromID(fileIDList)
 
         }else{
-            fileDBHelper.close()
+            db.close()
             return false
         }
 
-        fileDBHelper.close()
+        cursor.close()
+        db.close()
         return true
     }
 
@@ -589,11 +588,12 @@ class MainActivity : AppCompatActivity() {
                     loadScoreFromID(cursor.getString(0))
                 }
             }
+            cursor.close()
         }
 
         applyRecycler()
 
-        fileDBHelper.close()
+        db.close()
     }
 
     private fun loadScoreFromID(id: String){
@@ -620,13 +620,15 @@ class MainActivity : AppCompatActivity() {
             data.add(ScoreFileData(img = R.drawable.ic_file, name = cursor.getString(0),
                 isDirectory = false, id = id, author = cursor.getString(0), prevFolderID = curFolderData[FileContract.FileEntry.COLUMN_NAME_ID].toString()))
         }
-        scoreDBHelper.close()
+
+        cursor.close()
+        db.close()
     }
 
     private fun createFile(id: String, name: String = "Home", isFolder: Boolean = true){
         fileDBHelper = FileContract.FileDBHelper(this)
         val db = fileDBHelper.writableDatabase
-        var values = ContentValues().apply {
+        val values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
             put(FileContract.FileEntry.COLUMN_NAME_ID, id)
@@ -647,7 +649,7 @@ class MainActivity : AppCompatActivity() {
         fileDBHelper = FileContract.FileDBHelper(this)
         val db = fileDBHelper.writableDatabase
 
-        var values = ContentValues().apply {
+        val values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_FOLDER_NAME, name)
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, "")
             put(FileContract.FileEntry.COLUMN_NAME_ID, id)
@@ -686,7 +688,7 @@ class MainActivity : AppCompatActivity() {
     //뒤로가기 두번 누르면 종료
     private var backKeyPressedTime: Long = 0
     private var toast: Toast? = null
-    val PREFNAME = "Preferences"
+    private val prefName = "Preferences"
 
     override fun onBackPressed() {
         if(curFolderData[FileContract.FileEntry.COLUMN_NAME_PREV] == "none"){
@@ -698,9 +700,9 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (System.currentTimeMillis() <= backKeyPressedTime + 2000) {
-                val settings = getSharedPreferences(PREFNAME, MODE_PRIVATE)
+                val settings = getSharedPreferences(prefName, MODE_PRIVATE)
                 val editor = settings.edit()
-                editor.putBoolean("Appexec", true)
+                editor.putBoolean("Apex", true)
                 editor.apply()
                 ActivityCompat.finishAffinity(this)
                 toast?.cancel()

@@ -8,15 +8,14 @@ import android.graphics.Color
 import android.os.Bundle
 import android.provider.BaseColumns
 import android.text.TextUtils
-import android.util.Log
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.annotation.Dimension
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import com.garden.chordscore.R
-import com.garden.chordscore.customrecyclerview.ScoreFileData
 import com.garden.chordscore.database.FileContract
 import com.garden.chordscore.database.ScoreContract
 import kotlin.math.abs
@@ -31,8 +30,9 @@ class ScoreActivity : AppCompatActivity() {
     private var editList: MutableList<EditText> = mutableListOf()
     private var btnList: MutableList<Button> = mutableListOf()
     private var chordListMap: MutableMap<LinearLayout, MutableList<AutoCompleteTextView>> = mutableMapOf()
+    private var checkBtnList: MutableList<CheckBox> = mutableListOf()
 
-    private var ID: String = ""
+    private var curID: String = ""
 
     private var prevFolderID = ""
 
@@ -46,11 +46,15 @@ class ScoreActivity : AppCompatActivity() {
         val btnNewLine: ImageButton = findViewById(R.id.btn_new_line)
         val btnOther: ImageButton = findViewById(R.id.btn_others)
 
+        val layoutDelete: RelativeLayout = findViewById(R.id.layout_delete_line)
+        val btnDelete: Button = findViewById(R.id.btn_delete)
+        val btnDeleteCancel: Button = findViewById(R.id.btn_cancel)
+
         editTitle = findViewById(R.id.edit_name)
         linearParent = findViewById(R.id.linear_parent)
 
         if(intent.hasExtra("id")){
-            ID = intent.getStringExtra("id").toString()
+            curID = intent.getStringExtra("id").toString()
             loadDB(editTitle)
         }else {
             makeLine(linearParent)
@@ -83,11 +87,62 @@ class ScoreActivity : AppCompatActivity() {
                             builder.show()
                             return true
                         }
+                        R.id.menu_delete_line->{
+                            checkBtnList.forEach { it.visibility = View.VISIBLE }
+                            layoutDelete.visibility = View.VISIBLE
+                        }
                     }
                     return false
                 }
             })
             popupMenu.show()
+        }
+
+        btnDelete.setOnClickListener {
+            val saveLayoutList: MutableList<LinearLayout> = mutableListOf()
+            val saveEditTextList: MutableList<EditText> = mutableListOf()
+            val saveBtnList: MutableList<Button> = mutableListOf()
+            val saveCheckList: MutableList<CheckBox> = mutableListOf()
+
+            checkBtnList.forEachIndexed { index, checkBox ->
+                if(!checkBox.isChecked){
+                    saveLayoutList.add(lineList[index])
+                    saveEditTextList.add(editList[index])
+                    saveBtnList.add(btnList[index])
+                    saveCheckList.add(checkBox)
+                }else{
+                    chordListMap.remove(lineList[index])
+                }
+                checkBox.isChecked = false
+                checkBox.visibility = View.GONE
+            }
+
+            lineList.clear()
+            editList.clear()
+            btnList.clear()
+            checkBtnList.clear()
+
+            lineList.addAll(saveLayoutList)
+            editList.addAll(saveEditTextList)
+            btnList.addAll(saveBtnList)
+            checkBtnList.addAll(saveCheckList)
+
+            linearParent.removeAllViews()
+
+            lineList.forEachIndexed { index, linearLayout ->
+                linearParent.addView(linearLayout)
+                linearParent.addView(editList[index])
+            }
+
+            layoutDelete.visibility = View.GONE
+        }
+
+        btnDeleteCancel.setOnClickListener {
+            checkBtnList.forEach {
+                it.isChecked = false
+                it.visibility = View.GONE
+            }
+            layoutDelete.visibility = View.GONE
         }
 
     }
@@ -96,22 +151,22 @@ class ScoreActivity : AppCompatActivity() {
     private fun saveDB(){
         val db = dbHelper.writableDatabase
 
-        var title: String = editTitle.text.toString()
-        var lines: Int = lineList.size
-        var chords: String = ""
+        val title: String = editTitle.text.toString()
+        val lines: Int = lineList.size
+        var chords = ""
         var lineCount = 0
-        for ((key, value) in chordListMap){
+        for ((_, value) in chordListMap){
             for(textView in value){
                 chords += (lineCount.toString() + "|" + textView.text.toString() + "|" + textView.width.toString() + "$")
             }
             lineCount++
         }
-        var lyrics: String = ""
+        var lyrics = ""
         for(lyric in editList){
             lyrics += (lyric.text.toString() + "|")
         }
 
-        var values = ContentValues().apply {
+        val values = ContentValues().apply {
             put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, (title + chords + lyrics).hashCode().toString())
             put(ScoreContract.ScoreEntry.COLUMN_NAME_TITLE, title)
             put(ScoreContract.ScoreEntry.COLUMN_NAME_LINES, lines)
@@ -119,14 +174,15 @@ class ScoreActivity : AppCompatActivity() {
             put(ScoreContract.ScoreEntry.COLUMN_NAME_LYRICS, lyrics)
         }
 
-        if(ID.isEmpty()){
-            val newRowId = db?.insert(ScoreContract.ScoreEntry.TABLE_NAME, null, values)
+        if(curID.isEmpty()){
+            db?.insert(ScoreContract.ScoreEntry.TABLE_NAME, null, values)
         }else{
             val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
-            val selectionArgs = arrayOf(ID)
+            val selectionArgs = arrayOf(curID)
             values.remove(ScoreContract.ScoreEntry.COLUMN_NAME_ID)
-            values.put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, ID)
-            val count = db?.update(
+            values.put(ScoreContract.ScoreEntry.COLUMN_NAME_ID, curID)
+
+            db?.update(
                 ScoreContract.ScoreEntry.TABLE_NAME,
                 values,
                 selection,
@@ -148,7 +204,7 @@ class ScoreActivity : AppCompatActivity() {
             ScoreContract.ScoreEntry.COLUMN_NAME_LYRICS)
 
         val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} = ?"
-        val selectionArgs = arrayOf(ID)
+        val selectionArgs = arrayOf(curID)
 
         val cursor = db.query(
             ScoreContract.ScoreEntry.TABLE_NAME,
@@ -176,18 +232,20 @@ class ScoreActivity : AppCompatActivity() {
 
             val allLyrics = cursor.getString(5).split("|")
             for(index in 0 until allLyrics.lastIndex){
-                editList[index]?.setText(allLyrics[index])
+                editList[index].setText(allLyrics[index])
             }
         }
 
+        cursor.close()
         db.close()
     }
 
     private fun removeDB(){
         val db = dbHelper.writableDatabase
         val selection = "${ScoreContract.ScoreEntry.COLUMN_NAME_ID} LIKE ?"
-        val selectionArgs = arrayOf(ID)
-        val deletedRows = db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
+        val selectionArgs = arrayOf(curID)
+
+        db.delete(ScoreContract.ScoreEntry.TABLE_NAME, selection, selectionArgs)
         db.close()
 
         val dbRead = FileContract.FileDBHelper(this).readableDatabase
@@ -211,10 +269,10 @@ class ScoreActivity : AppCompatActivity() {
             null
         )
 
-        var isFolder: String
-        var name: String
+        val isFolder: String
+        val name: String
         var having: String
-        var prev: String
+        val prev: String
 
         if(cursor.moveToFirst()) {
 
@@ -229,11 +287,11 @@ class ScoreActivity : AppCompatActivity() {
             return
         }
 
-        having = having.replace("$ID|", "")
+        having = having.replace("$curID|", "")
 
         val dbWR = FileContract.FileDBHelper(this).writableDatabase
 
-        var values = ContentValues().apply {
+        val values = ContentValues().apply {
             put(FileContract.FileEntry.COLUMN_NAME_ID, prevFolderID)
             put(FileContract.FileEntry.COLUMN_NAME_IS_FOLDER, isFolder)
             put(FileContract.FileEntry.COLUMN_NAME_HAVING_FILES, having)
@@ -251,6 +309,7 @@ class ScoreActivity : AppCompatActivity() {
             selectionArgsFile
         )
 
+        cursor.close()
         dbWR.close()
 
         goBack()
@@ -259,7 +318,7 @@ class ScoreActivity : AppCompatActivity() {
     private fun makeLine(parentView: LinearLayout){
         val dynamicLine = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            background = getDrawable(R.color.white)
+            background = ResourcesCompat.getDrawable(resources, R.color.white, null)
 
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -281,12 +340,32 @@ class ScoreActivity : AppCompatActivity() {
             layoutParams = lp
         }
 
+        val dynamicCheck = CheckBox(this).apply {
+            buttonDrawable = null
+            background = ResourcesCompat.getDrawable(resources, R.drawable.check_button_round, null)
+
+            width = getDP(12)
+            height = getDP(12)
+
+            visibility = View.GONE
+
+            val lp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            lp.setMargins(10, 10, 10, 10)
+            layoutParams = lp
+        }
+
         chordListMap[dynamicLine] = mutableListOf()
         lineList.add(dynamicLine)
         editList.add(dynamicEditText)
+        checkBtnList.add(dynamicCheck)
 
         parentView.addView(dynamicLine)
         parentView.addView(dynamicEditText)
+
+        dynamicLine.addView(dynamicCheck)
 
         makeAddChordButton(dynamicLine)
     }
@@ -296,7 +375,7 @@ class ScoreActivity : AppCompatActivity() {
         val dynamicTextView = AutoCompleteTextView(this).apply {
             width = myWidth
             height = getDP(40)
-            background = getDrawable(R.color.black)
+            background = ResourcesCompat.getDrawable(resources, R.color.black, null)
             setTextColor(Color.WHITE)
             setTextSize(Dimension.DP, getDP(15).toFloat())
             gravity = Gravity.CENTER
@@ -313,7 +392,7 @@ class ScoreActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(5, 5, 5, 5);
+            lp.setMargins(5, 5, 5, 5)
             layoutParams = lp
         }
 
@@ -322,11 +401,11 @@ class ScoreActivity : AppCompatActivity() {
 
         chordListMap[linearView]?.add(dynamicTextView)
 
-        var moveX: Float = 0.0F
+        var moveX = 0.0F
         dynamicTextView.setOnTouchListener{ _, event ->
             fun removeHideChord(index: Int, list: MutableList<AutoCompleteTextView>){
                 while(index != -1 && index < list.size-1){
-                    var removeTextView = list.last()
+                    val removeTextView = list.last()
                     linearView.removeView(removeTextView)
                     list.remove(removeTextView)
                 }
@@ -336,8 +415,8 @@ class ScoreActivity : AppCompatActivity() {
                 if(linearView.right - textView.right < getDP(60)){
                     textView.width += (linearView.right - textView.right)
 
-                    var list = chordListMap[linearView]
-                    var index: Int = list!!.indexOf(textView)
+                    val list = chordListMap[linearView]
+                    val index: Int = list!!.indexOf(textView)
 
                     removeHideChord(index, list)
                     return true
@@ -357,7 +436,7 @@ class ScoreActivity : AppCompatActivity() {
                     if(dynamicTextView.width < getDP(60)){
                         dynamicTextView.width = getDP(60)
                     }
-                    var list = chordListMap[linearView]
+                    val list = chordListMap[linearView]
                     var index = list!!.indexOf(dynamicTextView)
                     while(index != list.size){
                         if(checkAndFixOver(list[index++])) break
@@ -385,14 +464,14 @@ class ScoreActivity : AppCompatActivity() {
     }
 
     private fun makeAddChordButton(linearView: LinearLayout){
-        var dynamicAddChordButton = Button(this).apply {
-            background = getDrawable(R.drawable.ic_add_box)
+        val dynamicAddChordButton = Button(this).apply {
+            background = ResourcesCompat.getDrawable(resources, R.drawable.ic_add_box, null)
 
             val lp = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            lp.setMargins(5, 5, 5, 5);
+            lp.setMargins(5, 5, 5, 5)
             lp.width= getDP(40)
             lp.height = getDP(40)
             layoutParams = lp
@@ -410,7 +489,7 @@ class ScoreActivity : AppCompatActivity() {
         if(lineList.size > btnList.size){
             btnList.add(dynamicAddChordButton)
         }else{
-            var index: Int = lineList.indexOf(linearView)
+            val index: Int = lineList.indexOf(linearView)
             linearView.removeView(btnList[index])
             btnList[index] = dynamicAddChordButton
         }
@@ -423,7 +502,7 @@ class ScoreActivity : AppCompatActivity() {
     private fun goBack(){
         saveDB()
 
-        val intent: Intent = Intent(this, MainActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
         intent.putExtra("id", prevFolderID)
         startActivity(intent)
     }

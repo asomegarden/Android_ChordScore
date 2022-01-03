@@ -11,6 +11,10 @@
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_arrow_back.xml" value="0.38229166666666664" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_arrow_drop_down.xml" value="0.38229166666666664" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_baseline_arrow_drop_down_24.xml" value="0.38229166666666664" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_check_box_checked.xml" value="0.21822916666666667" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_check_box_unchecked.xml" value="0.21822916666666667" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_check_circle_checked.xml" value="0.21822916666666667" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_check_circle_unchecked.xml" value="0.21822916666666667" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_create_folder.xml" value="0.38229166666666664" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_create_note.xml" value="0.38229166666666664" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_file.xml" value="0.38229166666666664" />
@@ -20,6 +24,7 @@
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/drawable/ic_note_add.xml" value="0.38229166666666664" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/activity_main.xml" value="0.25" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/activity_score.xml" value="0.25" />
+        <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/check_button_round.xml" value="0.20208333333333334" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_dialog_rename.xml" value="0.25" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_dropdown_item.xml" value="0.33" />
         <entry key="..\:/Develops/AndroidStudio/Projects/CodeScore/app/src/main/res/layout/custom_recycler_item.xml" value="0.33" />
